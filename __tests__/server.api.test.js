@@ -2,19 +2,31 @@ import request from "supertest";
 import { describe, expect, it, test, vi } from "vitest";
 
 import app from "#app";
-import db from "#db/client";
 
-/** Mock the database client to test just the API */
-vi.mock("#db/client", () => ({
-  default: { query: vi.fn() },
+/** Mock the query functions to test just the API */
+vi.mock("#db/queries/employees", () => ({
+  getEmployees: vi.fn(),
+  getEmployee: vi.fn(),
+  createEmployee: vi.fn(),
+  updateEmployee: vi.fn(),
+  deleteEmployee: vi.fn()
 }));
 
 const mockEmployee = {
   id: 1,
   name: "Mock Employee",
   birthday: "1001-10-01",
-  salary: 100001,
+  salary: 100001
 };
+
+// Import the mocked functions
+import {
+  getEmployees,
+  getEmployee,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee
+} from "#db/queries/employees";
 
 test('GET / sends the message "Welcome to the Fullstack Employees API."', async () => {
   const response = await request(app).get("/");
@@ -23,7 +35,7 @@ test('GET / sends the message "Welcome to the Fullstack Employees API."', async 
 });
 
 test("GET /employees sends all employees", async () => {
-  db.query.mockResolvedValue({ rows: [mockEmployee, mockEmployee] });
+  getEmployees.mockResolvedValue([mockEmployee, mockEmployee]);
   const response = await request(app).get("/employees");
   expect(response.status).toBe(200);
   expect(response.body).toEqual([mockEmployee, mockEmployee]);
@@ -41,7 +53,7 @@ describe("POST /employees", () => {
   });
 
   it("creates a employee and sends it with status 201", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
+    createEmployee.mockResolvedValue(mockEmployee);
     const response = await request(app).post("/employees").send(mockEmployee);
     expect(response.status).toBe(201);
     expect(response.body).toEqual(mockEmployee);
@@ -55,13 +67,13 @@ describe("GET /employees/:id", () => {
   });
 
   it("sends 404 if employee does not exist", async () => {
-    db.query.mockResolvedValue({ rows: [] });
+    getEmployee.mockResolvedValue(undefined);
     const response = await request(app).get("/employees/0");
     expect(response.status).toBe(404);
   });
 
   it("sends the employee if it exists", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
+    getEmployee.mockResolvedValue(mockEmployee);
     const response = await request(app).get("/employees/1");
     expect(response.status).toBe(200);
     expect(response.body).toEqual(mockEmployee);
@@ -75,13 +87,13 @@ describe("DELETE /employees/:id", () => {
   });
 
   it("sends 404 if employee does not exist", async () => {
-    db.query.mockResolvedValue({ rows: [] });
+    deleteEmployee.mockResolvedValue(undefined);
     const response = await request(app).delete("/employees/0");
     expect(response.status).toBe(404);
   });
 
   it("deletes the employee and sends 204", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
+    deleteEmployee.mockResolvedValue(mockEmployee);
     const response = await request(app).delete("/employees/1");
     expect(response.status).toBe(204);
   });
@@ -89,19 +101,16 @@ describe("DELETE /employees/:id", () => {
 
 describe("PUT /employees/:id", () => {
   it("sends 400 if request has no body", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
     const response = await request(app).put("/employees/1");
     expect(response.status).toBe(400);
   });
 
   it("sends 400 if request body does not have required fields", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
     const response = await request(app).put("/employees/1").send({});
     expect(response.status).toBe(400);
   });
 
   it("sends 400 if id is not a positive integer", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
     const response = await request(app)
       .put("/employees/1e10")
       .send(mockEmployee);
@@ -109,13 +118,13 @@ describe("PUT /employees/:id", () => {
   });
 
   it("sends 404 if employee does not exist", async () => {
-    db.query.mockResolvedValue({ rows: [] });
+    updateEmployee.mockResolvedValue(undefined);
     const response = await request(app).put("/employees/0").send(mockEmployee);
     expect(response.status).toBe(404);
   });
 
   it("updates and sends the employee", async () => {
-    db.query.mockResolvedValue({ rows: [mockEmployee] });
+    updateEmployee.mockResolvedValue(mockEmployee);
     const response = await request(app).put("/employees/1").send(mockEmployee);
     expect(response.status).toBe(200);
     expect(response.body).toEqual(mockEmployee);
